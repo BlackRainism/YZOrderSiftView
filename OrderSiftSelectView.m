@@ -8,6 +8,8 @@
 
 #import "OrderSiftSelectView.h"
 #import "YZLabel.h"
+#import "SiftHeaderView.h"
+#import "SiftOrderTimeView.h"
 
 
 #define ContentViewWidth  (self.width*2)/3
@@ -19,18 +21,27 @@
 
 @interface OrderSiftSelectView ()<UITableViewDelegate,UITableViewDataSource>
 
-//筛选标题
-@property(nonatomic,strong)YZLabel *titleLab;
 
-@property(nonatomic,strong)UIView *shadowView;
+@property(nonatomic,strong)YZLabel *titleLab;//筛选标题
+
+@property(nonatomic,strong)UIView *shadowView;//蒙版
 
 @property(nonatomic,strong)UIView *contentView;
 
 @property(nonatomic,strong)UITableView *tableView;
 
+@property(nonatomic,strong)UIButton *resetBtn; //重置
+@property(nonatomic,strong)UIButton *okBtn; //确认
 
 @property(nonatomic,strong)NSArray<NSString *>*orderStateArr;
 @property(nonatomic,strong)NSArray<NSString *>*payStateArr;
+
+@property(nonatomic,assign)BOOL isFirstOpen;
+@property(nonatomic,assign)BOOL isTwoOpen;
+
+@property(nonatomic,assign)NSInteger orderIndex; //记录订单点击index
+@property(nonatomic,assign)NSInteger payIndex; //记录付款点击index
+
 
 @end
 
@@ -47,6 +58,8 @@ static NSString *defaultCell = @"UITableViewCell";
         [self addSubview:self.contentView];
         [self addSubview:self.shadowView];
         [self.contentView addSubview:self.tableView];
+        [self.contentView addSubview:self.resetBtn];
+        [self.contentView addSubview:self.okBtn];
         [self.contentView addSubview:self.titleLab];
     }
     return self;
@@ -62,7 +75,8 @@ static NSString *defaultCell = @"UITableViewCell";
         frame.origin.x = 0;
         self.frame = frame;
     }];
-    [[UIApplication sharedApplication].keyWindow addSubview:self];
+    UIViewController *topController = [[[UIApplication sharedApplication] keyWindow] rootViewController];
+    [topController.view addSubview:self];
 }
 
 -(void)hide{
@@ -80,14 +94,27 @@ static NSString *defaultCell = @"UITableViewCell";
 #pragma mark - UITableViewDelegate
 
 -(NSInteger)numberOfSectionsInTableView:(UITableView *)tableView{
-    return 2;
+    return 3;
 }
 
 -(NSInteger)tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section{
     if (section == 0) {
-        return self.orderStateArr.count;
+        if (self.isFirstOpen == NO) {
+            return 0;
+        }else{
+            return self.orderStateArr.count;
+        }
+        
+    }else if(section == 1){
+        if (self.isTwoOpen == NO) {
+            return 0;
+        }else{
+            return self.payStateArr.count;
+        }
+    }else{
+        return 0;
     }
-    return self.payStateArr.count;
+    
 }
 
 -(UITableViewCell *)tableView:(UITableView *)tableView cellForRowAtIndexPath:(NSIndexPath *)indexPath{
@@ -107,6 +134,59 @@ static NSString *defaultCell = @"UITableViewCell";
     return cell;
 }
 
+-(UIView *)tableView:(UITableView *)tableView viewForHeaderInSection:(NSInteger)section{
+    if (section == 0) {
+        SiftHeaderView *headerOne;
+        if (!headerOne) {
+            headerOne = [[SiftHeaderView alloc]initWithFrame:CGRectMake(0, 0, ContentViewWidth, 44) andTitle:@"订单状态"];
+            headerOne.userInteractionEnabled = YES;
+            UITapGestureRecognizer *tapOne = [[UITapGestureRecognizer alloc]initWithTarget:self action:@selector(headerOneTap)];
+            [headerOne addGestureRecognizer:tapOne];
+        }
+        headerOne.stateLab.text = self.orderStateArr[self.orderIndex];
+        return headerOne;
+    }else if(section == 1){
+        SiftHeaderView *headerTwo ;
+        if (!headerTwo) {
+            headerTwo = [[SiftHeaderView alloc]initWithFrame:CGRectMake(0, 0, ContentViewWidth, 44) andTitle:@"支付状态"];
+            headerTwo.userInteractionEnabled = YES;
+            UITapGestureRecognizer *tapTwo = [[UITapGestureRecognizer alloc]initWithTarget:self action:@selector(headerTwoTap)];
+            [headerTwo addGestureRecognizer:tapTwo];
+        }
+        headerTwo.stateLab.text = self.payStateArr[self.payIndex];
+        return headerTwo;
+    }else{
+        SiftOrderTimeView *headerThree;
+        if (!headerThree) {
+            headerThree = [[SiftOrderTimeView alloc]initWithFrame:CGRectMake(0, 0, ContentViewWidth, 44)];
+        }
+        return headerThree;
+    }
+}
+
+-(void)tableView:(UITableView *)tableView didSelectRowAtIndexPath:(NSIndexPath *)indexPath{
+    [tableView deselectRowAtIndexPath:[tableView indexPathForSelectedRow] animated:YES];
+    if (indexPath.section == 0) {
+        self.orderIndex = indexPath.row;
+        self.isFirstOpen = NO;
+        [tableView reloadSections:[NSIndexSet indexSetWithIndex:0] withRowAnimation:UITableViewRowAnimationNone];
+    }else{
+        self.payIndex = indexPath.row;
+        self.isTwoOpen = NO;
+        [tableView reloadSections:[NSIndexSet indexSetWithIndex:1] withRowAnimation:UITableViewRowAnimationNone];
+    }
+}
+
+
+
+-(CGFloat)tableView:(UITableView *)tableView heightForHeaderInSection:(NSInteger)section{
+    return 44;
+}
+
+
+
+
+
 
 #pragma mark - event response
 //点击蒙版
@@ -118,7 +198,17 @@ static NSString *defaultCell = @"UITableViewCell";
     }
 }
 
+#pragma mark - private methonds
 
+-(void)headerOneTap{
+    self.isFirstOpen =!self.isFirstOpen;
+    [self.tableView reloadSections:[NSIndexSet indexSetWithIndex:0] withRowAnimation:UITableViewRowAnimationNone];
+}
+
+-(void)headerTwoTap{
+    self.isTwoOpen = !self.isTwoOpen;
+    [self.tableView reloadSections:[NSIndexSet indexSetWithIndex:1] withRowAnimation:UITableViewRowAnimationNone];
+}
 
 #pragma mark - getter and setters
 
@@ -144,9 +234,9 @@ static NSString *defaultCell = @"UITableViewCell";
 
 -(UILabel *)titleLab{
     if (!_titleLab) {
-        _titleLab = [[YZLabel alloc]initWithFrame:CGRectMake(0, 0, ContentViewWidth, 30)];
+        _titleLab = [[YZLabel alloc]initWithFrame:CGRectMake(0, 0, ContentViewWidth, 40)];
         _titleLab.backgroundColor = UIColor.groupTableViewBackgroundColor;
-        _titleLab.textInsets = UIEdgeInsetsMake(0, 15, 0, 0);
+        _titleLab.textInsets = UIEdgeInsetsMake(10, 15, 0, 0);
         _titleLab.text = @"筛选";
         _titleLab.textColor = TitleColor;
         _titleLab.font = TitleFont;
@@ -155,10 +245,35 @@ static NSString *defaultCell = @"UITableViewCell";
     return _titleLab;
 }
 
+-(UIButton *)resetBtn{
+    if (!_resetBtn) {
+        _resetBtn = [[UIButton alloc]initWithFrame:CGRectMake(0, self.height - 40, ContentViewWidth/2, 40)];
+        [_resetBtn setTitle:@"重置" forState:UIControlStateNormal];
+        _resetBtn.titleLabel.font = [UIFont systemFontOfSize:17];
+        [_resetBtn setTitleColor:UIColor.blackColor forState:UIControlStateNormal];
+        _resetBtn.backgroundColor = UIColor.whiteColor;
+    }
+    return _resetBtn;
+}
+
+-(UIButton *)okBtn{
+    if (!_okBtn ) {
+        _okBtn = [[UIButton alloc]initWithFrame:CGRectMake(ContentViewWidth/2, self.height - 40, ContentViewWidth/2, 40)];
+        [_okBtn setTitle:@"确认" forState:UIControlStateNormal];
+        _okBtn.titleLabel.font = [UIFont systemFontOfSize:17];
+        [_okBtn setTitleColor:UIColor.whiteColor forState:UIControlStateNormal];
+        _okBtn.backgroundColor = [UIColor colorWithHexString:@"ff6243"];
+    }
+    return _okBtn;
+}
+
+
 -(UITableView *)tableView{
     if (!_tableView) {
-        _tableView=[[UITableView alloc]initWithFrame:CGRectMake(0, 30, ContentViewWidth, self.height - 30) style:UITableViewStylePlain];
-        
+        _tableView=[[UITableView alloc]initWithFrame:CGRectMake(0, 40, ContentViewWidth, self.height - 80) style:UITableViewStyleGrouped];
+        _tableView.backgroundColor = UIColor.whiteColor;
+        _tableView.sectionFooterHeight = 0;
+        _tableView.bounces = NO;
         _tableView.delegate=self;
         _tableView.dataSource=self;
     }
